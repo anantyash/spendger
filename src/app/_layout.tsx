@@ -1,15 +1,24 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
-import { useColorScheme } from 'react-native';
+import React, { Suspense } from 'react';
+import { ActivityIndicator, View } from 'react-native';
+import { Stack } from 'expo-router';
+import { SQLiteProvider } from 'expo-sqlite';
+import { migrateDbIfNeeded } from '../database/db';
 
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import AppTabs from '@/components/app-tabs';
-
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
+export default function RootLayout() {
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
-      <AppTabs />
-    </ThemeProvider>
+    <SQLiteProvider databaseName="spendger.db" onInit={migrateDbIfNeeded} useSuspense>
+      <Suspense 
+        fallback={
+          <View style={{ flex: 1, justifyContent: 'center', backgroundColor: '#F4F7F6' }}>
+            <ActivityIndicator size="large" color="#00E676" />
+          </View>
+        }
+      >
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(auth)" />
+          <Stack.Screen name="(tabs)" />
+        </Stack>
+      </Suspense>
+    </SQLiteProvider>
   );
 }
