@@ -16,15 +16,9 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { type TransactionRow } from "../../database/db";
+import { DbService, type CategoryRow } from "../../database/dbService"; // Import clean service engine
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>["name"];
-
-interface CategoryRow {
-  id: number;
-  name: string;
-  icon: string;
-  color: string;
-}
 
 export default function HomeScreen() {
   const db = useSQLiteContext();
@@ -39,32 +33,45 @@ export default function HomeScreen() {
   const [isTxModalVisible, setIsTxModalVisible] = useState(false);
   const [isCatModalVisible, setIsCatModalVisible] = useState(false);
 
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
   // Form Input States
   const [txName, setTxName] = useState("");
   const [txAmount, setTxAmount] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Food");
   const [newCatName, setNewCatName] = useState("");
 
-  // Re-usable dynamic database fetch pipeline
+  // Re-usable presentation sync interface
   const loadAppData = async () => {
     try {
-      // Fetch Transactions
-      const allRows = await db.getAllAsync<TransactionRow>(
-        "SELECT * FROM transactions ORDER BY id DESC",
-      );
-      setDbSpends(allRows);
+      const transactions = await DbService.getAllTransactions(db);
+      const categories = await DbService.getAllCategories(db);
 
-      // Calculate active dynamic sum balance
-      const calculatedSum = allRows.reduce((sum, tx) => sum + tx.amount, 0);
-      setTotalBalance(calculatedSum);
+      // console.log("Trans: ", transactions);
 
-      // Fetch dynamic custom category cards
-      const allCats = await db.getAllAsync<CategoryRow>(
-        "SELECT * FROM categories ORDER BY id ASC",
-      );
-      setDbCategories(allCats);
+      setDbSpends(transactions);
+      setDbCategories(categories);
+
+      const now = new Date();
+      const currentMonth = now.getMonth();
+      const currentYear = now.getFullYear();
+
+      // 💸 Accurate production-grade filter
+      const monthlySpendSum = transactions.reduce((sum, tx) => {
+        if (tx.amount >= 0) return sum;
+
+        const txDate = new Date(tx.timestamp); // Parses ISO string cleanly
+
+        const isCurrentMonth =
+          txDate.getMonth() === currentMonth &&
+          txDate.getFullYear() === currentYear;
+
+        return isCurrentMonth ? sum + Math.abs(tx.amount) : sum;
+      }, 0);
+
+      setTotalBalance(monthlySpendSum);
     } catch (error) {
-      console.error("Database fetch runtime breakdown:", error);
+      console.error("Presentation mapping error layout breakdown:", error);
     }
   };
 
@@ -72,7 +79,6 @@ export default function HomeScreen() {
     loadAppData();
   }, [db]);
 
-  // Handle building brand new system categories dynamically
   const handleCreateCategory = async () => {
     if (!newCatName.trim()) {
       Alert.alert(
@@ -83,17 +89,12 @@ export default function HomeScreen() {
     }
 
     try {
-      // Insert with a default vibrant color asset assignment rule
-      await db.runAsync(
-        "INSERT INTO categories (name, icon, color) VALUES (?, ?, ?);",
-        [newCatName.trim(), "wallet-outline", "#B0BEC5"],
-      );
-
+      await DbService.createCategory(db, newCatName.trim());
       Alert.alert("Success", `Category "${newCatName.trim()}" created!`);
-      setSelectedCategory(newCatName.trim()); // Auto-select it
+      setSelectedCategory(newCatName.trim());
       setNewCatName("");
       setIsCatModalVisible(false);
-      await loadAppData(); // Live reload carousel view metrics
+      await loadAppData();
     } catch (error) {
       Alert.alert(
         "Duplicate Blocked",
@@ -102,9 +103,12 @@ export default function HomeScreen() {
     }
   };
 
-  // Submit manual transaction logic
   const handleAddTransaction = async () => {
-    if (!txName.trim() || !txAmount.trim()) {
+    // 1. Fallback to category if name is empty, using a synchronous variable
+    const finalTxName = txName.trim() ? txName.trim() : selectedCategory;
+
+    // 2. Validate using our final name variable and the amount text
+    if (!finalTxName || !txAmount.trim()) {
       Alert.alert(
         "Fields missing",
         "Merchant name and transaction totals are mandatory.",
@@ -122,39 +126,42 @@ export default function HomeScreen() {
     }
 
     try {
-      const options: Intl.DateTimeFormatOptions = {
-        hour: "2-digit",
-        minute: "2-digit",
-      };
-      const timeString = `Today, ${new Date().toLocaleTimeString("en-US", options)}`;
-
-      await db.runAsync(
-        "INSERT INTO transactions (name, amount, category, timestamp, method) VALUES (?, ?, ?, ?, ?)",
-        [txName.trim(), parsedAmount, selectedCategory, timeString, "Manual"],
+      // 3. Pass the clean, evaluated name to your database service
+      await DbService.addTransaction(
+        db,
+        finalTxName,
+        -parsedAmount,
+        selectedCategory,
       );
 
+      // 4. Reset states cleanly
       setTxName("");
       setTxAmount("");
       setIsTxModalVisible(false);
+      setIsDropdownOpen(false); // Clean up dropdown state too if it was open
       await loadAppData();
     } catch (error) {
       Alert.alert("Error", "Could not complete save operation.");
     }
   };
 
+  // Keep your style definitions and render markup exactly the same...
   return (
     <View style={[styles.container, { paddingTop: Math.max(insets.top, 16) }]}>
       <StatusBar barStyle="dark-content" />
 
       {/* Brand Header */}
+
       <View style={styles.header}>
         <Text style={styles.brandText}>Spendger</Text>
+
         <TouchableOpacity style={styles.notificationCircle}>
           <Ionicons name="notifications-outline" size={20} color="#333" />
         </TouchableOpacity>
       </View>
 
       {/* Primary virtual scroll interface handling complete layout elements */}
+
       <FlatList
         data={dbSpends}
         keyExtractor={(item) => item.id.toString()}
@@ -178,15 +185,19 @@ export default function HomeScreen() {
                   color="#00A86B"
                 />
               </View>
+
               <View>
                 <Text style={styles.txName}>{item.name}</Text>
+
                 <Text style={styles.txTime}>{item.timestamp}</Text>
               </View>
             </View>
+
             <View style={styles.txRight}>
               <Text
                 style={[
                   styles.txAmount,
+
                   { color: item.amount < 0 ? "#D32F2F" : "#0D382B" },
                 ]}
               >
@@ -194,6 +205,7 @@ export default function HomeScreen() {
                   ? `- ₹${Math.abs(item.amount)}`
                   : `₹${item.amount}`}
               </Text>
+
               <Text style={styles.txMethod}>{item.method}</Text>
             </View>
           </View>
@@ -201,7 +213,9 @@ export default function HomeScreen() {
         ListHeaderComponent={() => (
           <View>
             <View style={styles.balanceCard}>
-              <Text style={styles.balanceLabel}>Total Balance</Text>
+              {/* The dominant header shows exactly what the calculated scope is */}
+              <Text style={styles.balanceLabel}>This Month's Spending</Text>
+
               <Text style={styles.balanceAmount}>
                 ₹
                 {totalBalance.toLocaleString("en-IN", {
@@ -209,22 +223,24 @@ export default function HomeScreen() {
                   maximumFractionDigits: 2,
                 })}
               </Text>
+
+              {/* Clean informative meta-badge text replacing the repeat sentence */}
               <View style={styles.trendBadge}>
-                <Ionicons name="sync-outline" size={14} color="#00A86B" />
-                <Text style={styles.trendText}>
-                  Dynamic local ledger synced
-                </Text>
+                <Ionicons name="calendar-outline" size={14} color="#00A86B" />
+                <Text style={styles.trendText}>Auto-resets next month</Text>
               </View>
             </View>
 
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Categories</Text>
+
               <TouchableOpacity onPress={() => setIsCatModalVisible(true)}>
                 <Text style={styles.viewAllText}>+ Create New</Text>
               </TouchableOpacity>
             </View>
 
             {/* Dynamic Local DB-driven category list widget */}
+
             <FlatList
               horizontal
               data={dbCategories}
@@ -235,6 +251,7 @@ export default function HomeScreen() {
                 <TouchableOpacity
                   style={[
                     styles.categoryCard,
+
                     selectedCategory === item.name &&
                       styles.categoryCardSelected,
                   ]}
@@ -243,6 +260,7 @@ export default function HomeScreen() {
                   <View
                     style={[
                       styles.categoryIconContainer,
+
                       { backgroundColor: item.color + "22" },
                     ]}
                   >
@@ -252,6 +270,7 @@ export default function HomeScreen() {
                       color={item.color}
                     />
                   </View>
+
                   <Text style={styles.categoryName} numberOfLines={1}>
                     {item.name}
                   </Text>
@@ -267,6 +286,7 @@ export default function HomeScreen() {
         ListEmptyComponent={() => (
           <View style={styles.emptyContainer}>
             <Ionicons name="wallet-outline" size={44} color="#A3B8B0" />
+
             <Text style={styles.emptyText}>No recent spends recorded</Text>
           </View>
         )}
@@ -274,6 +294,7 @@ export default function HomeScreen() {
       />
 
       {/* FAB Launcher */}
+
       <TouchableOpacity
         style={styles.fab}
         onPress={() => setIsTxModalVisible(true)}
@@ -282,28 +303,37 @@ export default function HomeScreen() {
       </TouchableOpacity>
 
       {/* MODAL 1: ADD TRANSACTION SHEET */}
+
       <Modal visible={isTxModalVisible} animationType="slide" transparent>
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={styles.modalOverlay}
         >
           <View style={styles.modalContent}>
+            {/* Modal Header */}
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Add Custom Spend</Text>
-              <TouchableOpacity onPress={() => setIsTxModalVisible(false)}>
+              <TouchableOpacity
+                onPress={() => {
+                  setIsTxModalVisible(false);
+                  setIsDropdownOpen(false); // Close dropdown if modal closes
+                }}
+              >
                 <Ionicons name="close-circle" size={26} color="#A3B8B0" />
               </TouchableOpacity>
             </View>
 
+            {/* Input Field: Merchant Name */}
             <Text style={styles.inputLabel}>Merchant / Item Name</Text>
             <TextInput
               style={styles.input}
               placeholder="e.g., Subway Wrap"
               placeholderTextColor="#A3B8B0"
-              value={txName}
+              value={txName ? txName : selectedCategory}
               onChangeText={setTxName}
             />
 
+            {/* Input Field: Amount */}
             <Text style={styles.inputLabel}>Amount (₹)</Text>
             <TextInput
               style={styles.input}
@@ -314,29 +344,91 @@ export default function HomeScreen() {
               onChangeText={setTxAmount}
             />
 
-            <View
-              style={{
-                flexDirection: "row",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginTop: 14,
-              }}
-            >
-              <Text style={styles.inputLabel}>
-                Selected Category:{" "}
-                <Text style={{ color: "#00B56C" }}>{selectedCategory}</Text>
-              </Text>
+            {/* Dropdown Header Selector Row */}
+            <View style={styles.dropdownLabelContainer}>
+              <Text style={styles.inputLabel}>Select Category</Text>
               <TouchableOpacity onPress={() => setIsCatModalVisible(true)}>
-                <Text
-                  style={{ color: "#00A86B", fontSize: 12, fontWeight: "600" }}
-                >
-                  + New Category
-                </Text>
+                <Text style={styles.createNewCategoryLink}>+ New Category</Text>
               </TouchableOpacity>
             </View>
 
+            {/* The Dynamic Dropdown Trigger Button */}
             <TouchableOpacity
-              style={styles.saveButton}
+              style={styles.dropdownTrigger}
+              onPress={() => setIsDropdownOpen(!isDropdownOpen)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.dropdownTriggerText}>
+                {selectedCategory || "Choose a category"}
+              </Text>
+              <Ionicons
+                name={isDropdownOpen ? "chevron-up" : "chevron-down"}
+                size={20}
+                color="#0D382B"
+              />
+            </TouchableOpacity>
+
+            {/* Dropdown Items Expansion Panel */}
+            {isDropdownOpen && (
+              <View style={styles.dropdownMenuContainer}>
+                <FlatList
+                  data={dbCategories}
+                  keyExtractor={(item) => item.id.toString()}
+                  nestedScrollEnabled={true} // Permits smooth scrolling inside the modal view
+                  style={styles.dropdownList}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity
+                      style={[
+                        styles.dropdownItem,
+                        selectedCategory === item.name &&
+                          styles.dropdownItemActive,
+                      ]}
+                      onPress={() => {
+                        setSelectedCategory(item.name);
+                        setIsDropdownOpen(false); // Close menu automatically on item press
+                      }}
+                    >
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 10,
+                        }}
+                      >
+                        <Ionicons
+                          name={item.icon as any}
+                          size={18}
+                          color={item.color}
+                        />
+                        <Text
+                          style={[
+                            styles.dropdownItemText,
+                            selectedCategory === item.name &&
+                              styles.dropdownItemTextActive,
+                          ]}
+                        >
+                          {item.name}
+                        </Text>
+                      </View>
+                      {selectedCategory === item.name && (
+                        <Ionicons
+                          name="checkmark-circle"
+                          size={18}
+                          color="#00B56C"
+                        />
+                      )}
+                    </TouchableOpacity>
+                  )}
+                />
+              </View>
+            )}
+
+            {/* Action Submit Button */}
+            <TouchableOpacity
+              style={[
+                styles.saveButton,
+                { marginTop: isDropdownOpen ? 16 : 28 },
+              ]}
               onPress={handleAddTransaction}
             >
               <Text style={styles.saveButtonText}>Save Expense Log</Text>
@@ -346,10 +438,12 @@ export default function HomeScreen() {
       </Modal>
 
       {/* MODAL 2: NESTED CREATE CATEGORY PROMPT */}
+
       <Modal visible={isCatModalVisible} animationType="fade" transparent>
         <View
           style={[
             styles.modalOverlay,
+
             {
               backgroundColor: "rgba(0,0,0,0.5)",
               justifyContent: "center",
@@ -375,7 +469,7 @@ export default function HomeScreen() {
               <TouchableOpacity
                 style={[
                   styles.saveButton,
-                  { flex: 1, backgroundColor: "#E5ECE9" },
+                  { flex: 1, backgroundColor: "#E5ECE9", marginTop: 0 },
                 ]}
                 onPress={() => setIsCatModalVisible(false)}
               >
@@ -383,6 +477,7 @@ export default function HomeScreen() {
                   Cancel
                 </Text>
               </TouchableOpacity>
+
               <TouchableOpacity
                 style={[styles.saveButton, { flex: 1, marginTop: 0 }]}
                 onPress={handleCreateCategory}
@@ -399,6 +494,7 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F4F7F6" },
+
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -406,7 +502,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
   },
+
   brandText: { fontSize: 20, fontWeight: "bold", color: "#0D382B" },
+
   notificationCircle: {
     width: 40,
     height: 40,
@@ -415,6 +513,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+
   balanceCard: {
     backgroundColor: "#00B56C",
     marginHorizontal: 20,
@@ -422,17 +521,20 @@ const styles = StyleSheet.create({
     padding: 24,
     marginBottom: 16,
   },
+
   balanceLabel: {
     fontSize: 13,
     color: "rgba(255,255,255,0.8)",
     marginBottom: 6,
   },
+
   balanceAmount: {
     fontSize: 32,
     fontWeight: "bold",
     color: "#FFF",
     marginBottom: 12,
   },
+
   trendBadge: {
     flexDirection: "row",
     alignItems: "center",
@@ -442,7 +544,14 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 12,
   },
-  trendText: { fontSize: 11, color: "#FFF", marginLeft: 4, fontWeight: "500" },
+
+  trendText: {
+    fontSize: 11,
+    color: "#FFF",
+    marginLeft: 4,
+    fontWeight: "500",
+  },
+
   sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -451,9 +560,13 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     marginTop: 10,
   },
+
   sectionTitle: { fontSize: 16, fontWeight: "bold", color: "#0D382B" },
+
   viewAllText: { color: "#00A86B", fontSize: 13, fontWeight: "600" },
+
   categoryContainer: { paddingLeft: 20, paddingRight: 6, marginBottom: 24 },
+
   categoryCard: {
     backgroundColor: "#FFF",
     width: 96,
@@ -464,7 +577,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+
   categoryCardSelected: { borderColor: "#00B56C", borderWidth: 2 },
+
   categoryIconContainer: {
     width: 44,
     height: 44,
@@ -473,12 +588,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 10,
   },
+
   categoryName: {
     fontSize: 13,
     fontWeight: "600",
     color: "#0D382B",
     textAlign: "center",
   },
+
   txRow: {
     backgroundColor: "#FFF",
     flexDirection: "row",
@@ -489,7 +606,9 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     marginBottom: 12,
   },
+
   txLeft: { flexDirection: "row", alignItems: "center" },
+
   txIconContainer: {
     width: 44,
     height: 44,
@@ -499,15 +618,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginRight: 12,
   },
+
   txName: {
     fontSize: 14,
     fontWeight: "bold",
     color: "#0D382B",
     marginBottom: 3,
   },
+
   txTime: { fontSize: 11, color: "#7F948C" },
+
   txRight: { alignItems: "flex-end" },
+
   txAmount: { fontSize: 15, fontWeight: "bold", marginBottom: 3 },
+
   txMethod: {
     fontSize: 10,
     fontWeight: "bold",
@@ -517,12 +641,15 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 4,
   },
+
   emptyContainer: {
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 40,
   },
+
   emptyText: { fontSize: 14, color: "#7F948C" },
+
   fab: {
     position: "absolute",
     bottom: 20,
@@ -535,11 +662,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     elevation: 4,
   },
+
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(5, 21, 16, 0.4)",
     justifyContent: "flex-end",
   },
+
   modalContent: {
     backgroundColor: "#FFF",
     borderTopLeftRadius: 28,
@@ -547,13 +676,16 @@ const styles = StyleSheet.create({
     padding: 24,
     paddingBottom: 40,
   },
+
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 20,
   },
+
   modalTitle: { fontSize: 18, fontWeight: "bold", color: "#0D382B" },
+
   inputLabel: {
     fontSize: 12,
     fontWeight: "600",
@@ -561,6 +693,77 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     marginTop: 12,
   },
+
+  dropdownLabelContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 14,
+    marginBottom: 6,
+  },
+  createNewCategoryLink: {
+    color: "#00A86B",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  dropdownTrigger: {
+    backgroundColor: "#F4F7F6",
+    height: 48,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#E5ECE9",
+  },
+  dropdownTriggerText: {
+    fontSize: 15,
+    color: "#0D382B",
+    fontWeight: "500",
+  },
+  dropdownMenuContainer: {
+    backgroundColor: "#FFF",
+    borderRadius: 12,
+    marginTop: 4,
+    borderWidth: 1,
+    borderColor: "#E5ECE9",
+    maxHeight: 160, // Restricts size and turns on scrolling when list gets long
+    overflow: "hidden",
+    // Drop shadow styling
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
+  },
+  dropdownList: {
+    paddingHorizontal: 4,
+  },
+  dropdownItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginVertical: 2,
+  },
+
+  dropdownItemActive: {
+    backgroundColor: "#F4F7F6",
+  },
+
+  dropdownItemText: {
+    fontSize: 14,
+    color: "#4A5A54",
+  },
+
+  dropdownItemTextActive: {
+    color: "#0D382B",
+    fontWeight: "600",
+  },
+
   input: {
     backgroundColor: "#F4F7F6",
     height: 48,
@@ -569,6 +772,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: "#0D382B",
   },
+
   saveButton: {
     backgroundColor: "#00B56C",
     height: 52,
@@ -577,5 +781,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 28,
   },
+
   saveButtonText: { color: "#FFF", fontSize: 16, fontWeight: "bold" },
 });
