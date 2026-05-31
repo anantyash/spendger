@@ -145,6 +145,44 @@ export default function HomeScreen() {
     }
   };
 
+  const formatDisplayTimestamp = (isoString: string): string => {
+    try {
+      const date = new Date(isoString);
+      const now = new Date();
+
+      // Reset clock details to compute absolute calendar day offsets
+      const startOfToday = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate(),
+      );
+      const startOfYesterday = new Date(startOfToday);
+      startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+
+      const timeOptions: Intl.DateTimeFormatOptions = {
+        hour: "2-digit",
+        minute: "2-digit",
+      };
+      const formattedTime = date.toLocaleTimeString("en-US", timeOptions);
+
+      if (date >= startOfToday) {
+        return `Today, ${formattedTime}`;
+      } else if (date >= startOfYesterday) {
+        return `Yesterday, ${formattedTime}`;
+      } else {
+        // Return clear compact date representation for older entries (e.g., "12 Oct, 2025")
+        const dateOptions: Intl.DateTimeFormatOptions = {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+        };
+        return date.toLocaleDateString("en-IN", dateOptions);
+      }
+    } catch (e) {
+      return "Unknown date";
+    }
+  };
+
   // Keep your style definitions and render markup exactly the same...
   return (
     <View style={[styles.container, { paddingTop: Math.max(insets.top, 16) }]}>
@@ -189,7 +227,9 @@ export default function HomeScreen() {
               <View>
                 <Text style={styles.txName}>{item.name}</Text>
 
-                <Text style={styles.txTime}>{item.timestamp}</Text>
+                <Text style={styles.txTime}>
+                  {formatDisplayTimestamp(item.timestamp)}
+                </Text>
               </View>
             </View>
 

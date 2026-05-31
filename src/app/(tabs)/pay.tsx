@@ -21,9 +21,7 @@ export default function PayScreen() {
   // Evaluate simple expressions safely without eval()
   const calculateResult = () => {
     try {
-      // Basic sanitize and evaluation matching split/math operators
       const sanitized = displayValue.replace(/×/g, "*").replace(/÷/g, "/");
-      // Using Function constructor as a safer simple math parser fallback
       const result = new Function(`return ${sanitized}`)();
       setDisplayValue(Number(result).toFixed(2).replace(/\.00$/, ""));
     } catch (error) {
@@ -39,14 +37,12 @@ export default function PayScreen() {
         "Invalid Amount",
         "Please enter a valid amount greater than ₹0",
       );
+
       return;
     }
 
-    // Placeholder trigger representing intent transfer to installed apps (GPay/PhonePe/Paytm)
-    Alert.alert(
-      "Launching UPI Ecosystem",
-      `Processing Request for ₹${finalAmount}\nOpening system payment sheet...`,
-    );
+    Alert.alert("Not Activated", `Soon to be Activated !`);
+    setDisplayValue("0");
   };
 
   return (
@@ -93,7 +89,7 @@ export default function PayScreen() {
             style={[styles.button, styles.actionButton]}
             onPress={() => handlePress("⌫")}
           >
-            <Ionicons name="backspace-outline" size={24} color="#00E676" />
+            <Ionicons name="backspace-outline" size={24} color="#00A86B" />
           </TouchableOpacity>
         </View>
 
@@ -170,7 +166,7 @@ export default function PayScreen() {
             style={[styles.button, styles.equalsButton]}
             onPress={calculateResult}
           >
-            <Text style={[styles.buttonText, { color: "#061A14" }]}>=</Text>
+            <Text style={[styles.buttonText, { color: "#FFF" }]}>=</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -187,7 +183,7 @@ export default function PayScreen() {
           <Ionicons
             name="flash"
             size={20}
-            color="#061A14"
+            color="#FFF"
             style={{ marginRight: 8 }}
           />
           <Text style={styles.payButtonText}>Pay via Any UPI App</Text>
@@ -200,12 +196,12 @@ export default function PayScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#061A14",
+    backgroundColor: "#F4F7F6", // Light slate gray background canvas
     justifyContent: "space-between",
   },
   header: { paddingHorizontal: 24, marginTop: 10 },
-  headerTitle: { fontSize: 24, fontWeight: "bold", color: "#FFFFFF" },
-  headerSubtitle: { fontSize: 13, color: "#657D74", marginTop: 4 },
+  headerTitle: { fontSize: 24, fontWeight: "bold", color: "#0D382B" },
+  headerSubtitle: { fontSize: 13, color: "#7F948C", marginTop: 4 },
   displayContainer: {
     flexDirection: "row",
     alignItems: "flex-end",
@@ -215,15 +211,15 @@ const styles = StyleSheet.create({
   },
   currencySymbol: {
     fontSize: 36,
-    color: "#00E676",
-    fontWeight: "300",
+    color: "#00A86B", // Clean primary brand emerald accent
+    fontWeight: "400",
     marginRight: 8,
     bottom: 8,
   },
   displayText: {
     fontSize: 64,
     fontWeight: "700",
-    color: "#FFFFFF",
+    color: "#0D382B", // Crisp deep text readability
     textAlign: "right",
   },
   keyboardContainer: { paddingHorizontal: 16, gap: 12 },
@@ -233,33 +229,39 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 70,
     borderRadius: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
-    borderStyle: "solid",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.05)",
+    backgroundColor: "#FFFFFF", // Clean stark button cards
     justifyContent: "center",
     alignItems: "center",
+    // Premium soft drop shadows for elevated look on light canvas
+    shadowColor: "#000",
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
+    borderWidth: 1,
+    borderColor: "#E5ECE9",
   },
   actionButton: {
-    backgroundColor: "rgba(0, 230, 118, 0.05)",
-    borderColor: "rgba(0, 230, 118, 0.1)",
+    backgroundColor: "#E8F5E9", // Mild translucent green tint for operators
+    borderColor: "#C8E6C9",
   },
   equalsButton: {
-    backgroundColor: "#00E676",
+    backgroundColor: "#00B56C", // Primary solid brand color
+    borderColor: "#00A86B",
     height: "auto",
     flex: 1,
     marginVertical: 1,
   },
-  buttonText: { fontSize: 22, fontWeight: "600", color: "#FFFFFF" },
-  actionText: { color: "#00E676" },
+  buttonText: { fontSize: 22, fontWeight: "600", color: "#0D382B" },
+  actionText: { color: "#00A86B" },
   footer: { paddingHorizontal: 24, marginTop: 20 },
   payButton: {
-    backgroundColor: "#00E676",
+    backgroundColor: "#05291E", // Dark signature green layout button matching FAB
     height: 56,
     borderRadius: 18,
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
   },
-  payButtonText: { color: "#061A14", fontSize: 16, fontWeight: "700" },
+  payButtonText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
 });

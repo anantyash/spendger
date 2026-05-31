@@ -51,8 +51,21 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
   if (currentDbVersion === 0) {
     await db.execAsync("PRAGMA journal_mode = WAL;");
     await createTables(db);
+    await seedCategoriesOnly(db); // 👈 FIXED: Populates categories on first install!
     currentDbVersion = 1;
     await db.execAsync("PRAGMA user_version = 1;");
+  }
+
+  // App Update on user's phone (Version 1 -> 2: Seeding/Refreshing daily life categories)
+  if (currentDbVersion === 1) {
+    console.log("🚀 PRODUCTION MIGRATION: Upgrading user schema to V2...");
+
+    // Safely refresh categories without wiping user transactions
+    await db.execAsync("DELETE FROM categories;");
+    await seedCategoriesOnly(db);
+
+    await db.execAsync(`PRAGMA user_version = ${PRODUCTION_DATABASE_VERSION};`);
+    console.log("✅ Production Migration to V2 Successful!");
   }
 
   // App Update on user's phone (Version 1 -> 2: Seeding daily life categories)

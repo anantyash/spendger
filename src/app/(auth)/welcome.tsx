@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import {
+  Image,
   StatusBar,
   StyleSheet,
   Text,
@@ -27,16 +28,13 @@ export default function WelcomeScreen() {
 
       {/* 1. Custom Branding Logo */}
       <View style={styles.logoContainer}>
-        <View style={styles.glowRadial} />
-        <View style={styles.logoShapeWrapper}>
-          <Ionicons
-            name="infinite"
-            size={90}
-            color="#00E676"
-            style={styles.mainLogoIcon}
-          />
-          <View style={styles.logoInterlaceSlash} />
-        </View>
+
+        <Image
+          source={require("../../../assets/images/icon.png")}
+          resizeMode="contain"
+          style={{ width: 220, height: 220 }}
+        />
+        
       </View>
 
       {/* 2. Typography Block aligned with Product Summary */}
@@ -115,7 +113,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 28,
   },
   logoContainer: {
-    flex: 1.3,
+    flex: 1,
     justifyContent: "center",
     alignItems: "center",
     width: "100%",
@@ -134,16 +132,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  mainLogoIcon: {
-    transform: [{ rotate: "-45deg" }],
-  },
-  logoInterlaceSlash: {
-    position: "absolute",
-    width: 6,
-    height: 75,
-    backgroundColor: "#051510",
-    transform: [{ rotate: "15deg" }],
-  },
+
   textContainer: {
     alignItems: "center",
     paddingHorizontal: 8,
