@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import * as SecureStore from "expo-secure-store";
 import {
   Image,
   StatusBar,
@@ -12,6 +13,17 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function WelcomeScreen() {
   const router = useRouter();
+  const handleGetStarted = async () => {
+    try {
+      await SecureStore.setItemAsync("hasSeenWelcome", "true");
+      console.log("✅ Onboarding flag saved successfully!");
+      router.replace("/(tabs)/home");
+    } catch (error) {
+      console.error("Error saving onboarding status:", error);
+      router.replace("/(tabs)/home");
+    }
+  };
+
   const insets = useSafeAreaInsets();
 
   return (
@@ -28,13 +40,11 @@ export default function WelcomeScreen() {
 
       {/* 1. Custom Branding Logo */}
       <View style={styles.logoContainer}>
-
         <Image
           source={require("../../../assets/images/icon.png")}
           resizeMode="contain"
           style={{ width: 220, height: 220 }}
         />
-        
       </View>
 
       {/* 2. Typography Block aligned with Product Summary */}
@@ -69,7 +79,7 @@ export default function WelcomeScreen() {
       <View style={styles.bottomContainer}>
         <TouchableOpacity
           style={styles.button}
-          onPress={() => router.replace("/(tabs)/home")}
+          onPress={handleGetStarted}
           activeOpacity={0.85}
         >
           <Text style={styles.buttonText}>Get Started</Text>

@@ -1,6 +1,36 @@
-# Welcome to your Expo app 👋
+# SPENDGER
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+> Spendger is a zero-login, privacy-first local app that auto-tracks your expenses via notifications and includes a smart pre-payment calculator that deep-links directly into UPI apps.
+
+---
+
+## Table of Contents
+
+1. Overview
+2. Problem Statement
+
+## Overview
+
+Spendger is a smart, privacy-first mobile app that changes how you track money and make payments. It combines a smart calculator with an automatic expense tracker that runs completely on your own phone—no accounts, no internet servers, and no logins required.
+
+**Product Summary:**  
+Spendger is an expense tracker for Gen Z that automatically records UPI payments from apps like Google Pay, PhonePe, and Paytm. It also includes a Calculator + Pay feature that lets users calculate an amount and pay through any installed UPI app. The goal is to make expense tracking effortless by capturing spending automatically in the background.
+
+## Problem Statement
+
+As Gen Z, we use UPI for almost every payment—tea, food, shopping, subscriptions, and splitting bills with friends. We want to track where our money goes, but we don’t want to put in extra effort by manually recording every expense.
+
+Most of the time, we pay through apps like Google Pay, PhonePe, and Paytm, but then forget to log those payments in an expense tracker. Over time, we lose track of our spending and have no clear idea where our money is going.
+
+We need a simple app that automatically captures our UPI payments, saves them as expenses, and lets us calculate and pay in one place—so tracking money feels effortless and happens in the background.
+
+### Pain Points:
+
+- Forget to record small daily expenses.
+- Hard to understand monthly spending patterns.
+- Want an easy way to calculate and pay in one flow.
+
+---
 
 ## Get started
 
@@ -15,42 +45,3 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
    ```bash
    npx expo start
    ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-### Other setup steps
-
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.

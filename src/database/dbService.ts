@@ -1,5 +1,6 @@
 import { type SQLiteDatabase } from "expo-sqlite";
 import { type TransactionRow } from "./db";
+import { PaymentMethod, TransactionCategory } from "@/constants/enums";
 
 export interface CategoryRow {
   id: number;
@@ -29,22 +30,23 @@ export const DbService = {
     db: SQLiteDatabase,
     name: string,
     amount: number,
-    category: string,
+    category: TransactionCategory,
+    method: PaymentMethod,
   ): Promise<void> {
     // 🌐 Production Standard: Store UTC ISO string (e.g., "2026-05-29T18:30:00.000Z")
     const isoTimestamp = new Date().toISOString();
 
     await db.runAsync(
       "INSERT INTO transactions (name, amount, category, timestamp, method) VALUES (?, ?, ?, ?, ?)",
-      [name, amount, category, isoTimestamp, "Manual"],
+      [name, amount, category, isoTimestamp, method],
     );
   },
 
   // 4. Create a custom category type item
-  async createCategory(db: SQLiteDatabase, name: string): Promise<void> {
-    await db.runAsync(
-      "INSERT INTO categories (name, icon, color) VALUES (?, ?, ?);",
-      [name, "wallet-outline", "#B0BEC5"],
-    );
-  },
+  // async createCategory(db: SQLiteDatabase, name: string): Promise<void> {
+  //   await db.runAsync(
+  //     "INSERT INTO categories (name, icon, color) VALUES (?, ?, ?);",
+  //     [name, "wallet-outline", "#B0BEC5"],
+  //   );
+  // },
 };

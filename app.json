@@ -2,7 +2,7 @@
   "expo": {
     "name": "Spendger",
     "slug": "Spendger",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "spendger",
@@ -14,7 +14,7 @@
         "backgroundImage": "./assets/images/android-icon-background.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.Spendger"
+      "package": "com.yash.Spendger"
     },
     "plugins": [
       "expo-router",

@@ -1,9 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Stack, useRouter } from "expo-router";
+import { Stack, usePathname, useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import * as SplashScreen from "expo-splash-screen";
+import * as SQLite from "expo-sqlite"; // 👈 Import base SQLite tool
 import { SQLiteProvider } from "expo-sqlite";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -15,7 +16,6 @@ import {
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { migrateDbIfNeeded } from "../database/db";
 
-// Keep the native splash screen locked until our custom layout takes over
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function RootLayout() {
@@ -24,98 +24,103 @@ export default function RootLayout() {
     "(auth)",
   );
   const router = useRouter();
+  const pathname = usePathname();
+  const didNavigateRef = useRef(false);
 
+  // 🛡️ Run initialization safely in a controlled useEffect hook
   useEffect(() => {
-    if (dbReady) {
-      // Hide the native background screen completely
-      SplashScreen.hideAsync().catch(() => {});
+    async function initializeApp() {
+      try {
+        // 1. Open the DB connection with Android crash protections
+        const db = await SQLite.openDatabaseAsync("spendger.db", {
+          useNewConnection: true, // Prevents Android NullPointer pointer conflicts
+        });
 
-      // ✅ FIX THE CRASH: Delay navigation until the next JavaScript execution cycle
-      // This gives the Expo Router context time to safely initialize and mount.
-      if (initialRoute === "(tabs)") {
-        const timer = setTimeout(() => {
-          router.replace("/(tabs)/home");
-        }, 0);
-        return () => clearTimeout(timer);
+        // 2. Safely run migrations
+        await migrateDbIfNeeded(db);
+
+        // 3. Check auth state
+        const hasSeenWelcome = await SecureStore.getItemAsync("hasSeenWelcome");
+        if (hasSeenWelcome === "true") {
+          setInitialRoute("(tabs)");
+        } else {
+          setInitialRoute("(auth)");
+        }
+
+        // 4. Premium brand pause
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+      } catch (error) {
+        console.error("Initialization Failed: ", error);
+      } finally {
+        setDbReady(true);
       }
     }
-  }, [dbReady, initialRoute]);
 
+    initializeApp();
+  }, []); // 👈 Hard guarantee: Runs exactly ONCE on app launch
+
+  // Handle routing redirects once ready
+  useEffect(() => {
+    if (!dbReady || didNavigateRef.current) return;
+
+    SplashScreen.hideAsync().catch(() => {});
+
+    if (initialRoute === "(tabs)" && pathname === "/") {
+      const timer = setTimeout(() => {
+        didNavigateRef.current = true;
+        router.replace("/(tabs)/home");
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [dbReady, initialRoute, pathname, router]);
+
+  // Render Loading Splash View
+  if (!dbReady) {
+    return (
+      <SafeAreaProvider>
+        <StatusBar barStyle="dark-content" backgroundColor="#E6F9F2" />
+        <View style={styles.splashContainer}>
+          <View style={{ height: 60 }} />
+          <View style={styles.centerContent}>
+            <Image
+              source={require("../../assets/images/icon.png")}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+            <Text style={styles.titleText}>Spendger</Text>
+            <Text style={styles.taglineText}>FINTECH FUTURISM</Text>
+            <ActivityIndicator
+              size="small"
+              color="#00A86B"
+              style={{ marginTop: 24 }}
+            />
+          </View>
+          <View style={styles.bottomContainer}>
+            <View style={styles.decorativeLine} />
+            <View style={styles.secureBadge}>
+              <Ionicons
+                name="shield-checkmark"
+                size={14}
+                color="#00A86B"
+                style={{ marginRight: 6 }}
+              />
+              <Text style={styles.secureText}>Secure & Encrypted</Text>
+            </View>
+          </View>
+        </View>
+      </SafeAreaProvider>
+    );
+  }
+
+  // Render Core Application once DB & Logic are finalized
   return (
     <SafeAreaProvider>
       <StatusBar barStyle="dark-content" backgroundColor="#E6F9F2" />
-
-      <SQLiteProvider
-        databaseName="spendger.db"
-        onInit={async (db) => {
-          try {
-            // Run your database configuration & tables setup
-            await migrateDbIfNeeded(db);
-
-            // 🔐 SecureStore Implementation
-            const hasSeenWelcome =
-              await SecureStore.getItemAsync("hasSeenWelcome");
-
-            if (hasSeenWelcome === "true") {
-              setInitialRoute("(tabs)"); // Existing User -> Direct to Dashboard
-            } else {
-              setInitialRoute("(auth)"); // New User -> Direct to Welcome Onboarding
-            }
-
-            // Give it 1.5 seconds so users can experience the premium branding layout
-            await new Promise((resolve) => setTimeout(resolve, 1500));
-          } catch (error) {
-            console.error("Database Migration Failed: ", error);
-          } finally {
-            setDbReady(true);
-          }
-        }}
-      >
-        {!dbReady ? (
-          /* Custom Splash Layout cloned directly from image_954438.png */
-          <View style={styles.splashContainer}>
-            {/* Top Empty Space to Balance Center Content */}
-            <View style={{ height: 60 }} />
-
-            {/* Central Branding Elements */}
-            <View style={styles.centerContent}>
-              <Image
-                source={require("../../assets/images/icon.png")}
-                style={styles.logo}
-                resizeMode="contain"
-              />
-              <Text style={styles.titleText}>Spendger</Text>
-              <Text style={styles.taglineText}>FINTECH FUTURISM</Text>
-
-              {/* Subtle loading spinner to let users know it's initializing */}
-              <ActivityIndicator
-                size="small"
-                color="#00A86B"
-                style={{ marginTop: 24 }}
-              />
-            </View>
-
-            {/* Bottom Security Badging & Accents */}
-            <View style={styles.bottomContainer}>
-              <View style={styles.decorativeLine} />
-              <View style={styles.secureBadge}>
-                <Ionicons
-                  name="shield-checkmark"
-                  size={14}
-                  color="#00A86B"
-                  style={{ marginRight: 6 }}
-                />
-                <Text style={styles.secureText}>Secure & Encrypted</Text>
-              </View>
-            </View>
-          </View>
-        ) : (
-          /* Core App Navigation Screens once active */
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="(auth)" />
-            <Stack.Screen name="(tabs)" />
-          </Stack>
-        )}
+      <SQLiteProvider databaseName="spendger.db">
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(auth)" />
+          <Stack.Screen name="(tabs)" />
+        </Stack>
       </SQLiteProvider>
     </SafeAreaProvider>
   );
@@ -129,15 +134,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 60,
   },
-  centerContent: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  logo: {
-    width: 140,
-    height: 140,
-    marginBottom: 16,
-  },
+  centerContent: { alignItems: "center", justifyContent: "center" },
+  logo: { width: 140, height: 140, marginBottom: 16 },
   titleText: {
     fontSize: 36,
     fontWeight: "800",
@@ -173,9 +171,5 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(0, 168, 107, 0.12)",
   },
-  secureText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#3A4D44",
-  },
+  secureText: { fontSize: 12, fontWeight: "600", color: "#3A4D44" },
 });

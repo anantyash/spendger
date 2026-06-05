@@ -1,9 +1,11 @@
+import { PaymentMethod, TransactionCategory } from "@/constants/enums";
 import { Ionicons } from "@expo/vector-icons";
 import { useSQLiteContext } from "expo-sqlite";
 import React, { useEffect, useState } from "react";
 import {
   Alert,
   FlatList,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -31,16 +33,23 @@ export default function HomeScreen() {
 
   // Modals visibility toggles
   const [isTxModalVisible, setIsTxModalVisible] = useState(false);
-  const [isCatModalVisible, setIsCatModalVisible] = useState(false);
+
+  // const [isCatModalVisible, setIsCatModalVisible] = useState(false);
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   // Form Input States
   const [txName, setTxName] = useState("");
   const [txAmount, setTxAmount] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("Food");
-  const [newCatName, setNewCatName] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<TransactionCategory>(
+    TransactionCategory.OTHER,
+  );
 
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
+    PaymentMethod.CASH,
+  );
+
+  // const [newCatName, setNewCatName] = useState("");
   // Re-usable presentation sync interface
   const loadAppData = async () => {
     try {
@@ -76,32 +85,19 @@ export default function HomeScreen() {
   };
 
   useEffect(() => {
-    loadAppData();
-  }, [db]);
+    // If the expo-sqlite context provider isn't ready or is null,
+    // bail out early to prevent firing a premature empty query!
 
-  const handleCreateCategory = async () => {
-    if (!newCatName.trim()) {
-      Alert.alert(
-        "Empty Title",
-        "Please type a name for your new custom category.",
-      );
+    if (!db) {
+      console.log("⏳ SQLite context hook is warming up, delaying fetch...");
       return;
     }
 
-    try {
-      await DbService.createCategory(db, newCatName.trim());
-      Alert.alert("Success", `Category "${newCatName.trim()}" created!`);
-      setSelectedCategory(newCatName.trim());
-      setNewCatName("");
-      setIsCatModalVisible(false);
-      await loadAppData();
-    } catch (error) {
-      Alert.alert(
-        "Duplicate Blocked",
-        "A category with that name already exists.",
-      );
-    }
-  };
+    console.log(
+      "⚡ Database context is fully active! Syncing application data...",
+    );
+    loadAppData();
+  }, [db]);
 
   const handleAddTransaction = async () => {
     // 1. Fallback to category if name is empty, using a synchronous variable
@@ -132,6 +128,7 @@ export default function HomeScreen() {
         finalTxName,
         -parsedAmount,
         selectedCategory,
+        paymentMethod,
       );
 
       // 4. Reset states cleanly
@@ -141,6 +138,7 @@ export default function HomeScreen() {
       setIsDropdownOpen(false); // Clean up dropdown state too if it was open
       await loadAppData();
     } catch (error) {
+      console.log("Saving Error", error);
       Alert.alert("Error", "Could not complete save operation.");
     }
   };
@@ -158,15 +156,14 @@ export default function HomeScreen() {
       );
       const startOfYesterday = new Date(startOfToday);
       startOfYesterday.setDate(startOfYesterday.getDate() - 1);
-
       const timeOptions: Intl.DateTimeFormatOptions = {
         hour: "2-digit",
         minute: "2-digit",
       };
       const formattedTime = date.toLocaleTimeString("en-US", timeOptions);
-
+      // console.log("Time:", formattedTime);
       if (date >= startOfToday) {
-        return `Today, ${formattedTime}`;
+        return `${formattedTime}`;
       } else if (date >= startOfYesterday) {
         return `Yesterday, ${formattedTime}`;
       } else {
@@ -193,7 +190,10 @@ export default function HomeScreen() {
       <View style={styles.header}>
         <Text style={styles.brandText}>Spendger</Text>
 
-        <TouchableOpacity style={styles.notificationCircle}>
+        <TouchableOpacity
+          style={styles.notificationCircle}
+          onPress={() => loadAppData()}
+        >
           <Ionicons name="notifications-outline" size={20} color="#333" />
         </TouchableOpacity>
       </View>
@@ -203,57 +203,59 @@ export default function HomeScreen() {
       <FlatList
         data={dbSpends}
         keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item }) => (
-          <View style={styles.txRow}>
-            <View style={styles.txLeft}>
-              <View style={styles.txIconContainer}>
-                <Ionicons
-                  name={
-                    (item.category === "Food"
-                      ? "fast-food-outline"
-                      : item.category === "Tech"
-                        ? "laptop-outline"
-                        : item.category === "Travel"
-                          ? "airplane-outline"
-                          : item.category === "Leisure"
-                            ? "tv-outline"
-                            : "wallet-outline") as IoniconsName
-                  }
-                  size={22}
-                  color="#00A86B"
-                />
+        renderItem={({ item }) => {
+          const matchingCategory = dbCategories.find(
+            (c) => c.name === item.category,
+          );
+
+          const iconName = (matchingCategory?.icon ||
+            "wallet-outline") as IoniconsName;
+
+          return (
+            <View style={styles.txRow}>
+              <View style={styles.txLeft}>
+                <View style={styles.txIconContainer}>
+                  <Ionicons name={iconName} size={22} color="#00A86B" />
+                </View>
+
+                <View>
+                  <Text style={styles.txName}>{item.name}</Text>
+
+                  <View
+                    style={{ display: "flex", flexDirection: "row", gap: "2" }}
+                  >
+                    <Text style={styles.txTime}>{item.category},</Text>
+
+                    <Text style={styles.txTime}>
+                      {formatDisplayTimestamp(item.timestamp)}
+                    </Text>
+                  </View>
+                </View>
               </View>
 
-              <View>
-                <Text style={styles.txName}>{item.name}</Text>
+              <View style={styles.txRight}>
+                <Text
+                  style={[
+                    styles.txAmount,
 
-                <Text style={styles.txTime}>
-                  {formatDisplayTimestamp(item.timestamp)}
+                    { color: item.amount < 0 ? "#D32F2F" : "#0D382B" },
+                  ]}
+                >
+                  {item.amount < 0
+                    ? `- ₹${Math.abs(item.amount)}`
+                    : `₹${item.amount}`}
                 </Text>
+
+                <Text style={styles.txMethod}>{item.method}</Text>
               </View>
             </View>
-
-            <View style={styles.txRight}>
-              <Text
-                style={[
-                  styles.txAmount,
-
-                  { color: item.amount < 0 ? "#D32F2F" : "#0D382B" },
-                ]}
-              >
-                {item.amount < 0
-                  ? `- ₹${Math.abs(item.amount)}`
-                  : `₹${item.amount}`}
-              </Text>
-
-              <Text style={styles.txMethod}>{item.method}</Text>
-            </View>
-          </View>
-        )}
+          );
+        }}
         ListHeaderComponent={() => (
           <View>
             <View style={styles.balanceCard}>
               {/* The dominant header shows exactly what the calculated scope is */}
+
               <Text style={styles.balanceLabel}>This Month's Spending</Text>
 
               <Text style={styles.balanceAmount}>
@@ -265,18 +267,16 @@ export default function HomeScreen() {
               </Text>
 
               {/* Clean informative meta-badge text replacing the repeat sentence */}
+
               <View style={styles.trendBadge}>
                 <Ionicons name="calendar-outline" size={14} color="#00A86B" />
+
                 <Text style={styles.trendText}>Auto-resets next month</Text>
               </View>
             </View>
 
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Categories</Text>
-
-              <TouchableOpacity onPress={() => setIsCatModalVisible(true)}>
-                <Text style={styles.viewAllText}>+ Create New</Text>
-              </TouchableOpacity>
             </View>
 
             {/* Dynamic Local DB-driven category list widget */}
@@ -291,16 +291,16 @@ export default function HomeScreen() {
                 <TouchableOpacity
                   style={[
                     styles.categoryCard,
-
                     selectedCategory === item.name &&
                       styles.categoryCardSelected,
                   ]}
-                  onPress={() => setSelectedCategory(item.name)}
+                  onPress={() =>
+                    setSelectedCategory(item.name as TransactionCategory)
+                  }
                 >
                   <View
                     style={[
                       styles.categoryIconContainer,
-
                       { backgroundColor: item.color + "22" },
                     ]}
                   >
@@ -326,7 +326,6 @@ export default function HomeScreen() {
         ListEmptyComponent={() => (
           <View style={styles.emptyContainer}>
             <Ionicons name="wallet-outline" size={44} color="#A3B8B0" />
-
             <Text style={styles.emptyText}>No recent spends recorded</Text>
           </View>
         )}
@@ -364,17 +363,19 @@ export default function HomeScreen() {
             </View>
 
             {/* Input Field: Merchant Name */}
-            <Text style={styles.inputLabel}>Merchant / Item Name</Text>
+            <Text style={styles.inputLabel}>Item Name</Text>
             <TextInput
               style={styles.input}
               placeholder="e.g., Subway Wrap"
               placeholderTextColor="#A3B8B0"
-              value={txName ? txName : selectedCategory}
+              value={txName}
               onChangeText={setTxName}
             />
 
             {/* Input Field: Amount */}
+
             <Text style={styles.inputLabel}>Amount (₹)</Text>
+
             <TextInput
               style={styles.input}
               placeholder="0.00"
@@ -383,19 +384,55 @@ export default function HomeScreen() {
               value={txAmount}
               onChangeText={setTxAmount}
             />
+            {/* Payment Method Selector Segment */}
+            <Text style={styles.inputLabel}>Payment Method</Text>
+            <View style={styles.methodContainer}>
+              {Object.values(PaymentMethod).map((method) => (
+                <TouchableOpacity
+                  key={method}
+                  style={[
+                    styles.methodSegment,
+
+                    paymentMethod === method && styles.methodSegmentActive,
+                  ]}
+                  onPress={() => setPaymentMethod(method)}
+                  activeOpacity={0.9}
+                >
+                  <Ionicons
+                    name={
+                      method === PaymentMethod.UPI
+                        ? "qr-code-outline"
+                        : "card-outline"
+                    }
+                    size={16}
+                    color={paymentMethod === method ? "#FFFFFF" : "#0D382B"}
+                  />
+
+                  <Text
+                    style={[
+                      styles.methodSegmentText,
+                      paymentMethod === method &&
+                        styles.methodSegmentTextActive,
+                    ]}
+                  >
+                    {method}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
 
             {/* Dropdown Header Selector Row */}
             <View style={styles.dropdownLabelContainer}>
               <Text style={styles.inputLabel}>Select Category</Text>
-              <TouchableOpacity onPress={() => setIsCatModalVisible(true)}>
-                <Text style={styles.createNewCategoryLink}>+ New Category</Text>
-              </TouchableOpacity>
             </View>
 
             {/* The Dynamic Dropdown Trigger Button */}
             <TouchableOpacity
               style={styles.dropdownTrigger}
-              onPress={() => setIsDropdownOpen(!isDropdownOpen)}
+              onPress={() => {
+                Keyboard.dismiss();
+                setIsDropdownOpen(!isDropdownOpen);
+              }}
               activeOpacity={0.8}
             >
               <Text style={styles.dropdownTriggerText}>
@@ -424,7 +461,7 @@ export default function HomeScreen() {
                           styles.dropdownItemActive,
                       ]}
                       onPress={() => {
-                        setSelectedCategory(item.name);
+                        setSelectedCategory(item.name as TransactionCategory);
                         setIsDropdownOpen(false); // Close menu automatically on item press
                       }}
                     >
@@ -475,58 +512,6 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
-      </Modal>
-
-      {/* MODAL 2: NESTED CREATE CATEGORY PROMPT */}
-
-      <Modal visible={isCatModalVisible} animationType="fade" transparent>
-        <View
-          style={[
-            styles.modalOverlay,
-
-            {
-              backgroundColor: "rgba(0,0,0,0.5)",
-              justifyContent: "center",
-              paddingHorizontal: 30,
-            },
-          ]}
-        >
-          <View style={[styles.modalContent, { borderRadius: 24 }]}>
-            <Text style={[styles.modalTitle, { marginBottom: 12 }]}>
-              Create Custom Category
-            </Text>
-
-            <TextInput
-              style={styles.input}
-              placeholder="e.g., Subscriptions, Gym"
-              placeholderTextColor="#A3B8B0"
-              value={newCatName}
-              onChangeText={setNewCatName}
-              maxLength={15}
-            />
-
-            <View style={{ flexDirection: "row", gap: 12, marginTop: 20 }}>
-              <TouchableOpacity
-                style={[
-                  styles.saveButton,
-                  { flex: 1, backgroundColor: "#E5ECE9", marginTop: 0 },
-                ]}
-                onPress={() => setIsCatModalVisible(false)}
-              >
-                <Text style={{ color: "#4A5A54", fontWeight: "700" }}>
-                  Cancel
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.saveButton, { flex: 1, marginTop: 0 }]}
-                onPress={handleCreateCategory}
-              >
-                <Text style={styles.saveButtonText}>Create</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
       </Modal>
     </View>
   );
@@ -738,7 +723,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginTop: 14,
+    marginTop: 2,
     marginBottom: 6,
   },
   createNewCategoryLink: {
@@ -823,4 +808,34 @@ const styles = StyleSheet.create({
   },
 
   saveButtonText: { color: "#FFF", fontSize: 16, fontWeight: "bold" },
+
+  methodContainer: {
+    flexDirection: "row",
+    backgroundColor: "#F0F4F2", // soft tinted gray-green background
+    borderRadius: 8,
+    padding: 4,
+    marginBottom: 0,
+    gap: 4,
+  },
+  methodSegment: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 10,
+    borderRadius: 6,
+    gap: 6,
+  },
+  methodSegmentActive: {
+    backgroundColor: "#0D382B", // active button filled accent
+  },
+  methodSegmentText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#0D382B",
+  },
+  methodSegmentTextActive: {
+    color: "#FFFFFF",
+    fontWeight: "600",
+  },
 });
