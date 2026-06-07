@@ -11,20 +11,28 @@ export interface TransactionRow {
 }
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase) {
-  // 1. Ensure WAL mode is active for performance
-  await db.execAsync("PRAGMA journal_mode = WAL;");
+  try {
+    // 1. Ensure WAL mode is active for performance
+    await db.execAsync("PRAGMA journal_mode = WAL;");
 
-  // 2. Clear old database tables ONLY in development mode
-  if (__DEV__) {
-    console.log("🛠️ Dev mode detected: Resetting database tables...");
-    await dropTables(db);
+    // 2. Clear old database tables ONLY in development mode
+    if (__DEV__) {
+      console.log("🛠️ Dev mode detected: Resetting database tables...");
+      await dropTables(db);
+    }
+
+    // 3. Wrap schema changes in an explicit native transaction for production safety
+    await db.withTransactionAsync(async () => {
+      await createTables(db);
+      await seedCategoriesOnly(db);
+    });
+
+    console.log("🚀 Database initialized successfully.");
+  } catch (error) {
+    // CRITICAL: Catch and log the error so it doesn't silently freeze the application thread
+    console.error("❌ Critical Database Initialization Error:", error);
+    throw error;
   }
-
-  // 3. Create tables if they don't exist
-  await createTables(db);
-
-  // 4. Seed default categories if they are missing
-  await seedCategoriesOnly(db);
 }
 
 // ----------------------------------------------------
@@ -32,13 +40,15 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
 // ----------------------------------------------------
 
 async function dropTables(db: SQLiteDatabase) {
-  await db.execAsync(`
-    DROP TABLE IF EXISTS transactions;
-    DROP TABLE IF EXISTS categories;
-  `);
+  await db.execAsync("DROP TABLE IF EXISTS transactions;");
+  await db.execAsync("DROP TABLE IF EXISTS categories;");
 }
 
 async function createTables(db: SQLiteDatabase) {
+  if (!TransactionCategory || !PaymentMethod || !TransactionCategory.OTHER || !PaymentMethod.UPI) {
+    throw new Error("Database initialization aborted: Enums are undefined at runtime in production.");
+  }
+
   await db.execAsync(`
     CREATE TABLE IF NOT EXISTS transactions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -48,7 +58,9 @@ async function createTables(db: SQLiteDatabase) {
       timestamp TEXT NOT NULL,
       method TEXT DEFAULT '${PaymentMethod.UPI}'
     );
+  `);
 
+  await db.execAsync(`
     CREATE TABLE IF NOT EXISTS categories (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL UNIQUE,
@@ -57,6 +69,7 @@ async function createTables(db: SQLiteDatabase) {
     );
   `);
 }
+
 
 async function seedCategoriesOnly(db: SQLiteDatabase) {
   await db.execAsync(`

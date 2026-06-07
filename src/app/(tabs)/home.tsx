@@ -53,6 +53,7 @@ export default function HomeScreen() {
   // Re-usable presentation sync interface
   const loadAppData = async () => {
     try {
+      console.log("Load app data trigger !!");
       const transactions = await DbService.getAllTransactions(db);
       const categories = await DbService.getAllCategories(db);
 
@@ -194,7 +195,8 @@ export default function HomeScreen() {
           style={styles.notificationCircle}
           onPress={() => loadAppData()}
         >
-          <Ionicons name="notifications-outline" size={20} color="#333" />
+          <Ionicons name="refresh-outline" size={20} color="#333" />
+          {/* <Ionicons name="notifications-outline" size={20} color="#333" /> */}
         </TouchableOpacity>
       </View>
 

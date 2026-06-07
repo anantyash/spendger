@@ -2,7 +2,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { Stack, usePathname, useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import * as SplashScreen from "expo-splash-screen";
-import * as SQLite from "expo-sqlite"; // 👈 Import base SQLite tool
 import { SQLiteProvider } from "expo-sqlite";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -27,27 +26,19 @@ export default function RootLayout() {
   const pathname = usePathname();
   const didNavigateRef = useRef(false);
 
-  // 🛡️ Run initialization safely in a controlled useEffect hook
   useEffect(() => {
     async function initializeApp() {
       try {
-        // 1. Open the DB connection with Android crash protections
-        const db = await SQLite.openDatabaseAsync("spendger.db", {
-          useNewConnection: true, // Prevents Android NullPointer pointer conflicts
-        });
-
-        // 2. Safely run migrations
-        await migrateDbIfNeeded(db);
-
-        // 3. Check auth state
+        // 1. Check auth state via SecureStore
         const hasSeenWelcome = await SecureStore.getItemAsync("hasSeenWelcome");
+        console.log("Has Seen: ", hasSeenWelcome);
         if (hasSeenWelcome === "true") {
           setInitialRoute("(tabs)");
         } else {
           setInitialRoute("(auth)");
         }
 
-        // 4. Premium brand pause
+        // 2. Premium brand pause (gives database a second to settle in the provider)
         await new Promise((resolve) => setTimeout(resolve, 1500));
       } catch (error) {
         console.error("Initialization Failed: ", error);
@@ -57,7 +48,7 @@ export default function RootLayout() {
     }
 
     initializeApp();
-  }, []); // 👈 Hard guarantee: Runs exactly ONCE on app launch
+  }, []);
 
   // Handle routing redirects once ready
   useEffect(() => {
@@ -65,16 +56,14 @@ export default function RootLayout() {
 
     SplashScreen.hideAsync().catch(() => {});
 
+    // If they are logged in, swap out the root path for the home dashboard immediately
     if (initialRoute === "(tabs)" && pathname === "/") {
-      const timer = setTimeout(() => {
-        didNavigateRef.current = true;
-        router.replace("/(tabs)/home");
-      }, 0);
-      return () => clearTimeout(timer);
+      didNavigateRef.current = true;
+      router.replace("/(tabs)/home");
     }
   }, [dbReady, initialRoute, pathname, router]);
 
-  // Render Loading Splash View
+  // Render Your Beautiful Custom Loading Splash View while initializing
   if (!dbReady) {
     return (
       <SafeAreaProvider>
@@ -112,11 +101,16 @@ export default function RootLayout() {
     );
   }
 
-  // Render Core Application once DB & Logic are finalized
+  // SINGLE, UNIFIED APPLICATION WRAPPER
   return (
     <SafeAreaProvider>
       <StatusBar barStyle="dark-content" backgroundColor="#E6F9F2" />
-      <SQLiteProvider databaseName="spendger.db">
+      {/* The single database provider runs your migrations natively here */}
+      <SQLiteProvider
+        databaseName="spendger.db"
+        onInit={migrateDbIfNeeded}
+        onError={(err) => console.error("Database boot error: ", err)}
+      >
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(auth)" />
           <Stack.Screen name="(tabs)" />
@@ -129,47 +123,30 @@ export default function RootLayout() {
 const styles = StyleSheet.create({
   splashContainer: {
     flex: 1,
-    backgroundColor: "#E6F9F2",
     justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 60,
+    backgroundColor: "#E6F9F2",
   },
-  centerContent: { alignItems: "center", justifyContent: "center" },
-  logo: { width: 140, height: 140, marginBottom: 16 },
+  centerContent: { flex: 1, justifyContent: "center", alignItems: "center" },
+  logo: { width: 120, height: 120 },
   titleText: {
-    fontSize: 36,
-    fontWeight: "800",
-    color: "#006B46",
-    letterSpacing: 0.5,
+    fontSize: 28,
+    fontWeight: "bold",
+    color: "#061A14",
+    marginTop: 16,
   },
   taglineText: {
     fontSize: 12,
-    fontWeight: "600",
-    color: "#7A8C85",
-    letterSpacing: 3,
+    letterSpacing: 2,
+    color: "#00A86B",
     marginTop: 4,
   },
-  bottomContainer: {
-    width: "100%",
-    alignItems: "center",
-    paddingHorizontal: 40,
-  },
+  bottomContainer: { alignItems: "center", marginBottom: 36 },
   decorativeLine: {
-    width: 160,
-    height: 3,
-    backgroundColor: "#00E676",
-    borderRadius: 2,
-    marginBottom: 24,
+    width: 40,
+    height: 2,
+    backgroundColor: "#00A86B",
+    marginBottom: 16,
   },
-  secureBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(0, 168, 107, 0.06)",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: "rgba(0, 168, 107, 0.12)",
-  },
-  secureText: { fontSize: 12, fontWeight: "600", color: "#3A4D44" },
+  secureBadge: { flexDirection: "row", alignItems: "center" },
+  secureText: { fontSize: 12, color: "#061A14" },
 });
