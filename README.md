@@ -45,3 +45,30 @@ We need a simple app that automatically captures our UPI payments, saves them as
    ```bash
    npx expo start
    ```
+
+# Log command for Android
+
+```bash
+adb logcat *:E
+```
+
+Here is the breakdown of how `adb logcat *:E` works:
+
+- `adb`: This stands for Android Debug Bridge, a command-line tool that allows you to communicate with an Android device (either an emulator or a physical device). It is used for tasks such as installing apps, debugging, and accessing device logs.
+- `logcat`: This is a command that retrieves the log messages from the Android device. It displays the logs in real-time, allowing developers to see what's happening on the device as they interact with it.
+- `*:E`: This sets the filter priority level to Error. and the asterisk (\*) means that it applies to all tags.
+
+**The log levels**
+
+Some of most commonly used log levels :
+
+| Tag | Priority Level | Description                                              |
+| --- | -------------- | -------------------------------------------------------- |
+| \*  | All            | All log messages (lowest priority)                       |
+| V   | Verbose        | Everything (lowest priority)                             |
+| D   | Debug          | Debugging messages                                       |
+| I   | Info           | General information                                      |
+| W   | Warn           | Potential issues                                         |
+| E   | Error          | Critical issues/Crashing (What your command filters for) |
+| F   | Fatal          | Severe crashes where the process dies                    |
+| S   | Silent         | Highest priority (suppresses all logs)                   |
